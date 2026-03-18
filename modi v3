@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Chef Pro Ultra</title>
+    <link rel="manifest" href="manifest.json">
+    <style>
+        :root {
+            --bg: #000;
+            --card: #1c1c1e;
+            --accent: #ff9f0a;
+            --txt: #fff;
+            --gray: #8e8e93;
+            --input: #2c2c2e;
+        }
+
+        body {
+            background: var(--bg);
+            color: var(--txt);
+            font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+            margin: 0;
+            padding-bottom: 80px; /* Espacio para el menú inferior */
+        }
+
+        .header {
+            padding: 20px;
+            background: var(--card);
+            border-bottom: 1px solid #333;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        .container { padding: 20px; }
+
+        /* Navegación Inferior Estilo iOS */
+        .nav-bar {
+            position: fixed;
+            bottom: 0;
+            width: 100%;
+            background: rgba(28, 28, 30, 0.95);
+            display: flex;
+            justify-content: space-around;
+            padding: 15px 0;
+            backdrop-filter: blur(10px);
+            border-top: 1px solid #333;
+        }
+
+        .nav-item {
+            color: var(--gray);
+            text-decoration: none;
+            font-size: 12px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            cursor: pointer;
+        }
+
+        .nav-item.active { color: var(--accent); }
+
+        /* Componentes de Formulario */
+        input, textarea, select {
+            width: 100%;
+            background: var(--input);
+            border: none;
+            border-radius: 12px;
+            padding: 15px;
+            color: #fff;
+            margin-bottom: 15px;
+            box-sizing: border-box;
+            font-size: 16px;
+        }
+
+        .btn {
+            background: var(--accent);
+            color: #000;
+            border: none;
+            padding: 15px;
+            border-radius: 12px;
+            width: 100%;
+            font-weight: bold;
+            font-size: 16px;
+            transition: transform 0.1s;
+        }
+
+        .btn:active { transform: scale(0.97); }
+
+        .card-item {
+            background: var(--card);
+            padding: 15px;
+            border-radius: 15px;
+            margin-bottom: 10px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .hidden { display: none; }
+    </style>
+</head>
+<body>
+
+<div class="header">
+    <h1 id="view-title" style="margin:0; font-size: 24px;">Calculadora</h1>
+</div>
+
+<div id="view-calc" class="container">
+    <h2>Nueva Simulación</h2>
+    <select id="select-receta" onchange="cargarRecetaEnCalc()">
+        <option value="">Seleccionar receta guardada...</option>
+    </select>
+
+    <div style="display: flex; gap: 10px;">
+        <input type="number" id="calc-rinde-ori" placeholder="Rinde original">
+        <input type="number" id="calc-rinde-des" placeholder="Rinde deseado">
+    </div>
+
+    <textarea id="calc-ingredientes" rows="6" placeholder="ingrediente, cantidad, unidad (uno por linea)"></textarea>
+
+    <button class="btn" onclick="ejecutarCalculo()">Calcular Costos</button>
+
+    <div id="resultado-final" class="hidden">
+        <div id="lista-calculada" style="margin-top:20px;"></div>
+        <div class="card-item" style="background: var(--accent); color: #000; margin-top:10px;">
+            <b id="total-final">TOTAL: $0.00</b>
+        </div>
+        <button class="btn" style="background: #25D366; margin-top:10px;" onclick="compartirWhatsApp()">WhatsApp</button>
+    </div>
+</div>
+
+<div id="view-recetas" class="container hidden">
+    <h2>Mis Recetas Maestras</h2>
+    <input type="text" id="rec-nombre" placeholder="Nombre de la receta">
+    <input type="number" id="rec-rinde" placeholder="¿Cuánto rinde? (ej: 40)">
+    <textarea id="rec-cuerpo" rows="5" placeholder="harina, 500, g&#10;azucar, 200, g"></textarea>
+    <button class="btn" onclick="guardarRecetaMaestra()">Guardar Receta</button>
+
+    <div id="lista-recetas-guardadas" style="margin-top:20px;"></div>
+</div>
+
+<div id="view-precios" class="container hidden">
+    <h2>Precios de Insumos</h2>
+    <input type="text" id="ins-nombre" placeholder="Insumo (ej: Harina)">
+    <div style="display: flex; gap: 10px;">
+        <input type="number" id="ins-precio" placeholder="Precio $">
+        <input type="number" id="ins-cantidad" placeholder="Cantidad (g/ml/u)">
+    </div>
+    <button class="btn" onclick="guardarInsumo()">Actualizar Precio</button>
+
+    <div id="lista-precios" style="margin-top:20px;"></div>
+</div>
+
+<div class="nav-bar">
+    <div class="nav-item active" onclick="showView('calc', 'Calculadora')"><span>⚖️</span>Calc</div>
+    <div class="nav-item" onclick="showView('recetas', 'Recetas')"><span>📖</span>Recetas</div>
+    <div class="nav-item" onclick="showView('precios', 'Precios')"><span>💰</span>Precios</div>
+</div>
+
+<script>
+    // BASE DE DATOS LOCAL
+    let db = {
+        precios: JSON.parse(localStorage.getItem('cp_precios')) || {},
+        recetas: JSON.parse(localStorage.getItem('cp_recetas')) || []
+    };
+
+    function showView(viewId, title) {
+        document.querySelectorAll('.container').forEach(v => v.classList.add('hidden'));
+        document.getElementById('view-' + viewId).classList.remove('hidden');
+        document.getElementById('view-title').innerText = title;
+
+        document.querySelectorAll('.nav-item').forEach(i => i.classList.remove('active'));
+        event.currentTarget.classList.add('active');
+
+        if(viewId === 'calc') actualizarSelectRecetas();
+        if(viewId === 'precios') renderPrecios();
+        if(viewId === 'recetas') renderRecetas();
+    }
+
+    // --- LÓGICA DE INSUMOS ---
+    function guardarInsumo() {
+        const nom = document.getElementById('ins-nombre').value.toLowerCase().trim();
+        const pre = parseFloat(document.getElementById('ins-precio').value);
+        const can = parseFloat(document.getElementById('ins-cantidad').value);
+
+        if (nom && pre && can) {
+            db.precios[nom] = pre / can;
+            localStorage.setItem('cp_precios', JSON.stringify(db.precios));
+            renderPrecios();
+            document.getElementById('ins-nombre').value = "";
+        }
+    }
+
+    function renderPrecios() {
+        const div = document.getElementById('lista-precios');
+        div.innerHTML = "<h3>Lista de Precios (Costo/Unidad)</h3>";
+        for (let item in db.precios) {
+            div.innerHTML += `<div class="card-item"><span>${item}</span><b>$${db.precios[item].toFixed(4)}</b></div>`;
+        }
+    }
+
+    // --- LÓGICA DE RECETAS ---
+    function guardarRecetaMaestra() {
+        const nombre = document.getElementById('rec-nombre').value;
+        const rinde = document.getElementById('rec-rinde').value;
+        const cuerpo = document.getElementById('rec-cuerpo').value;
+
+        if(nombre && rinde && cuerpo) {
+            db.recetas.push({ nombre, rinde, cuerpo });
+            localStorage.setItem('cp_recetas', JSON.stringify(db.recetas));
+            renderRecetas();
+            alert("Receta guardada!");
+        }
+    }
+
+    function renderRecetas() {
+        const div = document.getElementById('lista-recetas-guardadas');
+        div.innerHTML = "";
+        db.recetas.forEach((r, index) => {
+            div.innerHTML += `<div class="card-item"><span>${r.nombre} (Rinde ${r.rinde})</span><button onclick="borrarReceta(${index})" style="background:none; border:none; color:red;">🗑️</button></div>`;
+        });
+    }
+
+    function actualizarSelectRecetas() {
+        const sel = document.getElementById('select-receta');
+        sel.innerHTML = '<option value="">Seleccionar receta...</option>';
+        db.recetas.forEach((r, index) => {
+            sel.innerHTML += `<option value="${index}">${r.nombre}</option>`;
+        });
+    }
+
+    function cargarRecetaEnCalc() {
+        const idx = document.getElementById('select-receta').value;
+        if(idx !== "") {
+            const r = db.recetas[idx];
+            document.getElementById('calc-rinde-ori').value = r.rinde;
+            document.getElementById('calc-ingredientes').value = r.cuerpo;
+        }
+    }
+
+    // --- CÁLCULO FINAL ---
+    let ultimaExportacion = "";
+
+    function ejecutarCalculo() {
+        const texto = document.getElementById('calc-ingredientes').value.trim();
+        const rOri = parseFloat(document.getElementById('calc-rinde-ori').value);
+        const rDes = parseFloat(document.getElementById('calc-rinde-des').value);
+        const factor = rDes / rOri;
+
+        if(!texto || !factor) return;
+
+        let total = 0;
+        let lineas = texto.split('\n');
+        let html = "";
+        ultimaExportacion = `*${document.getElementById('select-receta').selectedOptions[0].text}* (Rinde ${rDes})%0A`;
+
+        lineas.forEach(l => {
+            const p = l.split(',');
+            if(p.length === 3) {
+                const nom = p[0].toLowerCase().trim();
+                const cant = parseFloat(p[1]) * factor;
+                const unit = p[2].trim();
+                const costo = (db.precios[nom] || 0) * cant;
+                total += costo;
+
+                html += `<div class="card-item"><span>${cant.toFixed(1)} ${unit} ${nom}</span><b>$${costo.toFixed(2)}</b></div>`;
+                ultimaExportacion += `• ${cant.toFixed(1)}${unit} ${nom}: $${costo.toFixed(2)}%0A`;
+            }
+        });
+
+        ultimaExportacion += `%0A*TOTAL: $${total.toFixed(2)}*`;
+        document.getElementById('lista-calculada').innerHTML = html;
+        document.getElementById('total-final').innerText = `TOTAL: $${total.toFixed(2)}`;
+        document.getElementById('resultado-final').classList.remove('hidden');
+    }
+
+    function compartirWhatsApp() {
+        window.open(`https://wa.me/?text=${ultimaExportacion}`, '_blank');
+    }
+
+</script>
+</body>
+</html>
