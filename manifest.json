@@ -1,0 +1,17 @@
+{
+  "name": "Chef Pro Modificador",
+  "short_name": "Chef Pro",
+  "description": "Calculadora inteligente para escalar recetas y costos.",
+  "start_url": "index.html",
+  "display": "standalone",
+  "background_color": "#000000",
+  "theme_color": "#ff9f0a",
+  "icons": [
+    {
+      "src": "icono.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
